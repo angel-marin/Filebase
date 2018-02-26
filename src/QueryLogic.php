@@ -145,7 +145,17 @@ class QueryLogic
                     return $this->match($document, $field, $operator, $value);
                 }));
 
-                $results = $documents;
+                if ($first)
+                {
+                    $results = $documents;
+                    $first = false;
+                }
+                else
+                    $results = array_filter($results, function ($document) use ($documents){
+                        $needle = $document->toArray();
+                        $haystack = array_map(function($d){return $d->toArray();}, $documents);
+                        return in_array($needle, $haystack);
+                    });
             }
         }
 
@@ -228,42 +238,47 @@ class QueryLogic
     {
         $d_value = $document->field($field);
 
-        switch (true)
+        if ($operator === '=' && $d_value == $value)
+            return true;
+        if ($operator === '==' && $d_value == $value)
+            return true;
+        if ($operator === '===' && $d_value === $value)
+            return true;
+        if ($operator === '!=' && $d_value != $value)
+            return true;
+        if ($operator === '!==' && $d_value !== $value)
+            return true;
+        if (strtoupper($operator) === 'NOT' && $d_value != $value)
+            return true;
+        if ($operator === '>'  && $d_value >  $value)
+            return true;
+        if ($operator === '>=' && $d_value >= $value)
+            return true;
+        if ($operator === '<'  && $d_value <  $value)
+            return true;
+        if ($operator === '<=' && $d_value <= $value)
+            return true;
+        if (strtoupper($operator) === 'LIKE' && preg_match('/'.$value.'/is',$d_value))
+            return true;
+        if (strtoupper($operator) === 'NOT LIKE' && !preg_match('/'.$value.'/is',$d_value))
+            return true;
+        if (strtoupper($operator) === 'IN')
         {
-            case ($operator === '=' && $d_value == $value):
+            if(is_array($value) && is_array($d_value))
+            {
+                if(count(array_diff($value, $d_value)) === 0)
+                {
+                    return true;
+                }
+            }
+            else if (in_array($value, (array) $d_value))
+            {
                 return true;
-            case ($operator === '==' && $d_value == $value):
-                return true;
-            case ($operator === '===' && $d_value === $value):
-                return true;
-            case ($operator === '!=' && $d_value != $value):
-                return true;
-            case ($operator === '!==' && $d_value !== $value):
-                return true;
-            case (strtoupper($operator) === 'NOT' && $d_value != $value):
-                return true;
-            case ($operator === '>'  && $d_value >  $value):
-                return true;
-            case ($operator === '>=' && $d_value >= $value):
-                return true;
-            case ($operator === '<'  && $d_value <  $value):
-                return true;
-            case ($operator === '<=' && $d_value <= $value):
-                return true;
-            case (strtoupper($operator) === 'LIKE' && preg_match('/'.$value.'/is',$d_value)):
-                return true;
-            case (strtoupper($operator) === 'NOT LIKE' && !preg_match('/'.$value.'/is',$d_value)):
-                return true;
-            case (strtoupper($operator) === 'IN' && in_array($d_value, (array) $value)):
-                return true;
-            case (strtoupper($operator) === 'IN' && in_array($value, (array) $d_value)):
-                return true;
-            case (strtoupper($operator) === 'REGEX' && preg_match($value, $d_value)):
-                return true;
-            default:
-                return false;
+            }
         }
-
+        if (strtoupper($operator) === 'REGEX' && preg_match($value, $d_value))
+            return true;
+        return false;
     }
 
 
